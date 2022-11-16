@@ -4,6 +4,7 @@ import org.apache.http.HttpStatus;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 
 public class Application implements JsonStrings {
 
@@ -13,10 +14,16 @@ public class Application implements JsonStrings {
 
     public static void main(String[] args) {
         token = getAuthorizationToken();
-        categoryId = createCategory(false);
+        System.out.println("Token: " + token);
+        categoryId = createCategory(true);
+        System.out.println("Category ID: " + categoryId);
+        System.out.println("Category by ID:");
         getCategoryById(categoryId);
-        deleteCategoryById(categoryId);
+        System.out.println("Visible categories:");
         getVisibleCategories();
+        System.out.println("Delete category:");
+        deleteCategoryById(categoryId);
+        verifyNoCategories();
     }
 
     /**
@@ -96,6 +103,20 @@ public class Application implements JsonStrings {
                 .param("Content-Type", "application/json")
                 .pathParam("categoryId", id)
                 .when().delete(BASE_URL + "/private/category/{categoryId}")
-                .then().statusCode(HttpStatus.SC_OK);
+                .then().statusCode(HttpStatus.SC_OK).log().all();
+    }
+
+    /**
+     * Verifies there are no categories.
+     * Uses headers and response body assertion.
+     */
+    public static void verifyNoCategories() {
+        given()
+                .header(
+                        "Authorization",
+                        "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .when().get(BASE_URL + "/category")
+                .then().assertThat().body("recordsTotal", equalTo(0));
     }
 }
