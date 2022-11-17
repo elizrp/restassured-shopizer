@@ -1,8 +1,14 @@
+import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.matcher.ResponseAwareMatcher;
+import io.restassured.parsing.Parser;
+import io.restassured.response.Response;
 import org.apache.http.HttpStatus;
+import org.hamcrest.Matcher;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.restassured.RestAssured.baseURI;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -11,19 +17,26 @@ public class Application implements JsonStrings {
     private static final String BASE_URL = "http://localhost:8080/api/v1";
     private static String token;
     private static int categoryId;
+    private static String packageCode;
 
     public static void main(String[] args) {
         token = getAuthorizationToken();
-        System.out.println("Token: " + token);
-        categoryId = createCategory(true);
-        System.out.println("Category ID: " + categoryId);
-        System.out.println("Category by ID:");
-        getCategoryById(categoryId);
-        System.out.println("Visible categories:");
-        getVisibleCategories();
-        System.out.println("Delete category:");
-        deleteCategoryById(categoryId);
-        verifyNoCategories();
+//        System.out.println("Token: " + token);
+        categoryId = createCategory(false);
+//        System.out.println("Category ID: " + categoryId);
+//        System.out.println("Category by ID:");
+//        System.out.println(getCategoryById(categoryId).getBody().asString());
+//        System.out.println("Visible categories:");
+//        getVisibleCategories();
+//        System.out.println("Delete category:");
+//        deleteCategoryById(categoryId);
+//        verifyNoCategories();
+        verifyLineage(categoryId);
+        getAllGroupsWithPreemptiveBasicAuth();
+        getAllGroupsWithChallengedBasicAuth();
+        packageCode = createShippingPackage();
+        ShippingPackage shippingPackage = getPackageByCode(packageCode);
+        System.out.println(shippingPackage.getCode());
     }
 
     /**
@@ -63,16 +76,17 @@ public class Application implements JsonStrings {
      * Uses path parameter.
      *
      * @param id the id of the category
+     * @return the Response from the server
      */
-    public static void getCategoryById(int id) {
-        given()
+    public static Response getCategoryById(int id) {
+        return given()
                 .header(
                         "Authorization",
                         "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .pathParam("categoryId", id)
                 .when().get(BASE_URL + "/category/{categoryId}")
-                .then().log().all();
+                .then().extract().response();
     }
 
     /**
@@ -118,5 +132,70 @@ public class Application implements JsonStrings {
                 .contentType(ContentType.JSON)
                 .when().get(BASE_URL + "/category")
                 .then().assertThat().body("recordsTotal", equalTo(0));
+    }
+
+    /**
+     * Verifies part of the response by using other parts of the response.
+     * Uses lambda expression.
+     */
+    public static void verifyLineage(int id) {
+        getCategoryById(id)
+                .then().body("lineage", response -> equalTo(String.format("/%s/", response.path("id").toString())));
+    }
+
+    /**
+     * Retrieve all groups using preemptive basic authentication.
+     */
+    public static void getAllGroupsWithPreemptiveBasicAuth() {
+        given()
+                .auth().preemptive().basic("admin@shopizer.com", "password")
+                .when().get(BASE_URL + "/sec/private/groups")
+                .then().statusCode(200).and().log().all();
+    }
+
+    /**
+     * Retrieve all groups using challenged basic authentication.
+     */
+    public static void getAllGroupsWithChallengedBasicAuth() {
+        given()
+                .auth().basic("admin@shopizer.com", "password")
+                .when().get(BASE_URL + "/sec/private/groups")
+                .then().statusCode(200).and().log().all();
+    }
+
+    /**
+     * Creates a shipping package by serialization of a ShippingPackage object.
+     *
+     * @return the code of the newly created package
+     */
+    public static String createShippingPackage() {
+        ShippingPackage shippingPackage = new ShippingPackage();
+        given()
+                .header(
+                        "Authorization",
+                        "Bearer " + token)
+                .contentType("application/json")
+                .body(shippingPackage)
+                .when().post(BASE_URL + "/private/shipping/package")
+                .then().statusCode(HttpStatus.SC_OK);
+
+        return shippingPackage.getCode();
+    }
+
+    /**
+     * Retrieves a shipping package by a given code.
+     *
+     * @param code the code of the shipping package
+     * @return a deserialized ShippingPackage object
+     */
+    public static ShippingPackage getPackageByCode(String code) {
+        return given()
+                .header(
+                        "Authorization",
+                        "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .pathParam("packageId", code)
+                .when().get(BASE_URL + "/private/shipping/package/{packageId}")
+                .as(ShippingPackage.class);
     }
 }

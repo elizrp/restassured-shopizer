@@ -36,6 +36,11 @@
             <artifactId>xml-path</artifactId>
             <version>${rest.assured}</version>
         </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -51,5 +56,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
