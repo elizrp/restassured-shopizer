@@ -21,7 +21,6 @@ public class Application implements JsonStrings {
 
     public static void main(String[] args) {
         token = getAuthorizationToken();
-//        System.out.println("Token: " + token);
         categoryId = createCategory(false);
 //        System.out.println("Category ID: " + categoryId);
 //        System.out.println("Category by ID:");
@@ -35,8 +34,7 @@ public class Application implements JsonStrings {
         getAllGroupsWithPreemptiveBasicAuth();
         getAllGroupsWithChallengedBasicAuth();
         packageCode = createShippingPackage();
-        ShippingPackage shippingPackage = getPackageByCode(packageCode);
-        System.out.println(shippingPackage.getCode());
+        System.out.println(getPackageByCode(packageCode).getCode());
     }
 
     /**
@@ -134,9 +132,13 @@ public class Application implements JsonStrings {
                 .then().assertThat().body("recordsTotal", equalTo(0));
     }
 
+    // -------------------------------------------------------------------------
+    // DEMO:
     /**
      * Verifies part of the response by using other parts of the response.
      * Uses lambda expression.
+     *
+     * "lineage" is a property of a category which is always in the format "/<category_id>/".
      */
     public static void verifyLineage(int id) {
         getCategoryById(id)
@@ -183,7 +185,7 @@ public class Application implements JsonStrings {
     }
 
     /**
-     * Retrieves a shipping package by a given code.
+     * Retrieves a shipping package by a given code using deserialization.
      *
      * @param code the code of the shipping package
      * @return a deserialized ShippingPackage object
@@ -194,8 +196,8 @@ public class Application implements JsonStrings {
                         "Authorization",
                         "Bearer " + token)
                 .contentType(ContentType.JSON)
-                .pathParam("packageId", code)
-                .when().get(BASE_URL + "/private/shipping/package/{packageId}")
+                .pathParam("packageCode", code)
+                .when().get(BASE_URL + "/private/shipping/package/{packageCode}")
                 .as(ShippingPackage.class);
     }
 }
